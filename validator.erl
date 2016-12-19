@@ -34,6 +34,9 @@ validator() ->
             validator();
         stop ->
             ok;
+        % Old messages that are still in the queue must be removed somehow, this
+        % is why, and this is very important, the main loop of the validator includes
+        % a catch all clause.
         _Old ->
             validator()
     end.
