@@ -8,26 +8,26 @@ init(Value) ->
     entry(Value, make_ref()). % second parameter(timestamp) is just for uniqueness
 
 % looping process function receiving read/write/check messages from validator and sending responses back
+% note that only the write operation makes a recursive call with a new timestamp
 entry(Value, Time) ->
-    %note that only the write operation makes a recursive call with a new timestamp
     receive
         {read, Ref, From} ->
             % a read request tagged with a reference. We will return a message tagged with the
             % reference so that the requester can identify the correct message. The reply will contain also the process
             % identifier of the entry, the value, and the current timestamp. The PID is needed for the asynchronous handler
-
-            %% TODO: ADD SOME CODE
+            From ! {Ref, self(), Value, Time},
             entry(Value, Time); %
         {write, New} ->
             % update the current value of the entry, no reply needed. The timestamp of the entry will be updated.
-            entry(... , make_ref());  %% TODO: COMPLETE
+            entry(New , make_ref()); % this is just a virtual entry, so only a reference is set, nothing written to DB
         {check, Ref, Readtime, From} ->
             % check if the timestamp of the entry has changed since we read the value (at time Readtime).
-            if 
-                 ... == ... ->   %% TODO: COMPLETE
-                    %% TODO: ADD SOME CODE
+            if
+            % tell the validator if the timestamp is still the same or if the client has to abort.
+                Readtime == Time ->
+                    From ! {Ref, ok};
                 true ->
-                    From ! {Ref, abort} %tell the validator if the timestamp is still the same or if the client has to abort.
+                    From ! {Ref, abort}
             end,
             entry(Value, Time);
         stop ->
