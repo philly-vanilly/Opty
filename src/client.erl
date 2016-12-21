@@ -1,27 +1,27 @@
 -module(client).
--export([start/5]).
+-export([start/6]).
 
 % Client starts a transaction by creating a Handler and by retrieving Validator and Store from the Server. Those two are
 % passed to the Handler
 
-start(ClientID, Entries, Reads, Writes, Server) ->
-    spawn(fun() -> open(ClientID, Entries, Reads, Writes, Server, 0, 0) end).
+start(ClientID, Entries, Reads, Writes, Server, OutFd) ->
+    spawn(fun() -> open(ClientID, Entries, Reads, Writes, Server, 0, 0, OutFd) end).
 
-open(ClientID, Entries, Reads, Writes, Server, Total, Ok) ->
+open(ClientID, Entries, Reads, Writes, Server, Total, Ok, OutFd) ->
     Server ! {open, self()},
     receive
         {stop, From} ->
-            io:format("~w: Transactions TOTAL:~w, OK:~w, -> ~w % ~n",
-            [ClientID, Total, Ok, 100*Ok/Total]),
+            io:format(OutFd, "~w: Transactions TOTAL:~w, OK:~w, -> ~w % ~n", [ClientID, Total, Ok, 100*Ok/Total]),
+            io:format("~w: Transactions TOTAL:~w, OK:~w, -> ~w % ~n", [ClientID, Total, Ok, 100*Ok/Total]),
             From ! {done, self()},
             ok;
         {transaction, Validator, Store} ->
             Handler = handler:start(self(), Validator, Store),
             case do_transaction(ClientID, Entries, Reads, Writes, Handler) of
                 ok ->
-                    open(ClientID, Entries, Reads, Writes, Server, Total+1, Ok+1);
+                    open(ClientID, Entries, Reads, Writes, Server, Total+1, Ok+1, OutFd);
                 abort ->
-                    open(ClientID, Entries, Reads, Writes, Server, Total+1, Ok)
+                    open(ClientID, Entries, Reads, Writes, Server, Total+1, Ok, OutFd)
             end
     end.
 

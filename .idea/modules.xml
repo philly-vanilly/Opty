@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Opty.iml" filepath="$PROJECT_DIR$/.idea/Opty.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Opty.iml" filepath="$PROJECT_DIR$/Opty.iml" />
     </modules>
   </component>
 </project>
