@@ -1,5 +1,5 @@
 -module(opty).
--export([start/5, stop/1]).
+-export([start/5, stop/2]).
 
 %% Clients: Number of concurrent clients in the system
 %% Entries: Number of entries in the store
@@ -7,25 +7,25 @@
 %% Writes: Number of write operations per transaction
 %% Time: Duration of the experiment (in secs)
 
-start(Clients, Entries, Reads, Writes, Time) ->
+start(NumberOfClients, Entries, Reads, Writes, Time) ->
+    spawn_link(fun() -> Printer = printer:start(self(), NumberOfClients) end),
     register(s, server:start(Entries)),
-    L = startClients(Clients, [], Entries, Reads, Writes),
-    io:format("Starting: ~w CLIENTS, ~w ENTRIES, ~w RDxTR, ~w WRxTR, DURATION ~w s~n", 
-         [Clients, Entries, Reads, Writes, Time]),
+    L = startClients(NumberOfClients, [], Entries, Reads, Writes, Printer),
+    Printer ! {starting, NumberOfClients, Entries, Reads, Writes, Time},
     timer:sleep(Time*1000),
-    stop(L).
+    stop(L,Printer).
 
-stop(L) ->
-    io:format("Stopping...~n"),
+stop(L, Printer) ->
+    Printer ! stopping,
     stopClients(L),
     waitClients(L),
     s ! stop,
-    io:format("Stopped~n").
+    Printer ! stop.
 
-startClients(0, L, _, _, _) -> L;
-startClients(Clients, L, Entries, Reads, Writes) ->
-    Pid = client:start(Clients, Entries, Reads, Writes, s),
-    startClients(Clients-1, [Pid|L], Entries, Reads, Writes).
+startClients(0, L, _, _, _, Printer) -> L;
+startClients(NumberOfClients, L, Entries, Reads, Writes, Printer) ->
+    Pid = client:start(NumberOfClients, Entries, Reads, Writes, s, Printer),
+    startClients(NumberOfClients -1, [Pid|L], Entries, Reads, Writes, Printer).
 
 stopClients([]) ->
     ok;
