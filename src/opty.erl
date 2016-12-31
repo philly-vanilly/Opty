@@ -1,5 +1,5 @@
 -module(opty).
--export([start/5, stop/2]).
+-export([start/4, stop/2]).
 
 %% Clients: Number of concurrent clients in the system
 %% Entries: Number of entries in the store
@@ -7,12 +7,14 @@
 %% Writes: Number of write operations per transaction
 %% Time: Duration of the experiment (in secs)
 
-start(Clients, Entries, Reads, Writes, Time) ->
-    register(s, server:start(Entries)),
+start(Subsets, Reads, Writes, Time) ->
+    {ok, {StartingAt, Range}} = list_max(Subsets),
+    Max = StartingAt+Range-1,
+    register(s, server:start(Max)),
     {ok,OutFd} = file:open("output.txt", [write, append]),
-    L = startClients(Clients, [], Entries, Reads, Writes, OutFd),
-    io:format(OutFd, "Starting: ~w CLIENTS, ~w ENTRIES, ~w RDxTR, ~w WRxTR, DURATION ~w s~n", [Clients, Entries, Reads, Writes, Time]),
-    io:format("Starting: ~w CLIENTS, ~w ENTRIES, ~w RDxTR, ~w WRxTR, DURATION ~w s~n", [Clients, Entries, Reads, Writes, Time]),
+    L = startClients(Subsets, [], Reads, Writes, OutFd),
+    io:format(OutFd, "~w CLIENTS, ~w SUBSETS, ~w ENTRIES, ~w RDxTR, ~w WRxTR, DURATION ~w s~n", [length(Subsets), Subsets, Max, Reads, Writes, Time]),
+    io:format("Starting: ~w CLIENTS, ~w SUBSETS, ~w ENTRIES, ~w RDxTR, ~w WRxTR, DURATION ~w s~n", [length(Subsets), Subsets, Max, Reads, Writes, Time]),
     timer:sleep(Time*1000),
     stop(L, OutFd).
 
@@ -26,10 +28,10 @@ stop(L, OutFd) ->
     io:format("Stopped~n"),
     file:close(OutFd).
 
-startClients(0, L, _, _, _, _) -> L;
-startClients(Clients, L, Entries, Reads, Writes, OutFd) ->
-    Pid = client:start(Clients, Entries, Reads, Writes, s, OutFd),
-    startClients(Clients-1, [Pid|L], Entries, Reads, Writes, OutFd).
+startClients([], L, _, _, _) -> L;
+startClients(Subsets, L, Reads, Writes, OutFd) ->
+    Pid = client:start(length(Subsets), hd(Subsets), Reads, Writes, s, OutFd),
+    startClients(tl(Subsets), [Pid|L], Reads, Writes, OutFd).
 
 stopClients([]) ->
     ok;
@@ -44,3 +46,11 @@ waitClients(L) ->
         {done, Pid} ->
             waitClients(lists:delete(Pid, L))
     end.
+
+list_max([]) -> empty;
+list_max([H|T]) -> {ok, list_max(H, T)}.
+list_max(X,[]) -> X;
+list_max({StartingAtOne, RangeOne}, [{StartingAtTwo, RangeTwo}|T])
+    when (StartingAtOne+RangeOne) < (StartingAtTwo+RangeTwo) ->
+    list_max({StartingAtTwo, RangeTwo}, T);
+list_max(X,[_|T]) -> list_max(X, T).
