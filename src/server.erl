@@ -14,7 +14,8 @@
 % stop message is received.
 
 start(N) ->
-    spawn(fun() -> init(N) end).
+    Pid = spawn(fun() -> init(N) end),
+    Pid.
 
 init(N) ->
     Store = store:new(N),
